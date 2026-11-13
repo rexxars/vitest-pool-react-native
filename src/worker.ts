@@ -6,17 +6,22 @@ import type {SerializedConfig} from 'vitest'
 import {createMethodsRPC, type PoolOptions, type PoolWorker} from 'vitest/node'
 import {openBridge} from './bridge.js'
 import {bundle} from './bundle.js'
+import {runOnDevice} from './device-queue.js'
 import type {
   DeviceDriver,
   Method,
   Platform,
   PoolSettings,
   RunContext,
+  Simulator,
   Spec,
   WorkerMessage,
 } from './types.js'
 
-export class NativeWorker<Device> extends EventEmitter implements PoolWorker {
+export class NativeWorker<Device extends string | Simulator>
+  extends EventEmitter
+  implements PoolWorker
+{
   readonly name: string
   private readonly platform: Platform
   private readonly driver: DeviceDriver<Device>
@@ -73,9 +78,21 @@ export class NativeWorker<Device> extends EventEmitter implements PoolWorker {
   private async execute({files, workerId}: RunContext, method: Method): Promise<void> {
     const config = this.config
     if (!config) throw new Error('Vitest sent a run request before worker startup')
-    const {root} = config
-    const {signal} = this.controller
     const device = await this.driver.resolveDevice(this.options.device)
+    const id = typeof device === 'string' ? device : device.udid
+    await runOnDevice(this.platform + ':' + id, () =>
+      this.runFiles(device, files, workerId, method, config),
+    )
+  }
+  private async runFiles(
+    device: Device,
+    files: Spec[],
+    workerId: number,
+    method: Method,
+    config: SerializedConfig,
+  ): Promise<void> {
+    const {signal} = this.controller
+    signal.throwIfAborted()
     const unlock = await this.driver.lockDevice(device)
     try {
       signal.throwIfAborted()
@@ -87,7 +104,7 @@ export class NativeWorker<Device> extends EventEmitter implements PoolWorker {
       // Each file starts with fresh globals and a new Metro module cache.
       for (const spec of files) {
         signal.throwIfAborted()
-        const dir = await mkdtemp(join(root, '.vitest-' + this.platform + '-'))
+        const dir = await mkdtemp(join(config.root, '.vitest-' + this.platform + '-'))
         try {
           await this.runFile(dir, device, spec, method, metroPort ?? 0, workerId, config)
         } finally {

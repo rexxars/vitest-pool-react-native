@@ -41,14 +41,16 @@ export default defineConfig({
   test: {
     projects: [
       {test: {name: 'node', include}},
-      {test: {name: 'ios', include, pool: iosPool(), maxWorkers: 1}},
-      {test: {name: 'android', include, pool: androidPool(), maxWorkers: 1}},
+      {test: {name: 'ios', include, pool: iosPool()}},
+      {test: {name: 'android', include, pool: androidPool()}},
     ],
   },
 })
 ```
 
 Import `test`, `expect` and hooks from `vitest` as usual. Tests that import your source by relative path exercise that source. To check the package entry points your users get, install your library's `npm pack` tarball in a test project and import it by package name.
+
+The pool runs one test file at a time on each device. You can leave `maxWorkers` at its default, including for your Node projects.
 
 ## GitHub Actions
 
