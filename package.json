@@ -1,0 +1,93 @@
+{
+  "name": "vitest-pool-react-native",
+  "version": "0.0.1",
+  "description": "Run Vitest library tests with Metro and Hermes on iOS and Android",
+  "keywords": [
+    "android",
+    "hermes",
+    "ios",
+    "metro",
+    "react-native",
+    "testing",
+    "vitest"
+  ],
+  "homepage": "https://github.com/rexxars/vitest-pool-react-native#readme",
+  "bugs": {
+    "url": "https://github.com/rexxars/vitest-pool-react-native/issues"
+  },
+  "license": "MIT",
+  "author": "Espen Hovlandsdal <espen@hovlandsdal.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rexxars/vitest-pool-react-native.git"
+  },
+  "bin": {
+    "vitest-pool-react-native": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "template",
+    "CHANGELOG.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "test:node": "vitest run --project node",
+    "format": "oxfmt --write",
+    "format:check": "oxfmt --check",
+    "lint": "oxlint && tsc --noEmit",
+    "check": "npm run format:check && npm run lint && npm run build && npm run test:node",
+    "prepack": "npm run build",
+    "setup:ios": "node dist/cli.js setup ios",
+    "setup:android": "node dist/cli.js setup android",
+    "release:version": "changeset version && npm install --package-lock-only --ignore-scripts",
+    "release:publish": "changeset publish",
+    "pretest": "npm run build",
+    "presetup:ios": "npm run build",
+    "presetup:android": "npm run build",
+    "test:package": "node scripts/test-package.ts"
+  },
+  "dependencies": {
+    "@jridgewell/trace-mapping": "^0.3.31",
+    "flatted": "^3.4.4",
+    "proper-lockfile": "^4.1.2",
+    "rolldown": "1.2.19"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.3",
+    "@react-native/metro-config": "0.81.5",
+    "@types/node": "^22.12.0",
+    "@types/proper-lockfile": "^4.1.4",
+    "metro": "0.83.8",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "runtime-probe": "file:./fixtures/runtime-probe",
+    "tsdown": "^0.23.7",
+    "typescript": "^7.0.2",
+    "vitest": "5.1.0"
+  },
+  "peerDependencies": {
+    "@react-native/metro-config": "0.81.x",
+    "metro": "0.83.x",
+    "react-native": "0.81.x",
+    "vitest": "5.0.x || 5.1.x"
+  },
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26"
+  }
+}

@@ -1,0 +1,16 @@
+node_modules/
+package-lock.json
+android/.gradle/
+android/.kotlin/
+android/local.properties
+android/**/.cxx/
+android/**/build/
+android/**/*.keystore
+ios/.bundle/
+ios/.xcode.env.local
+ios/Pods/
+ios/build/
+ios/vendor/
+ios/*.xcworkspace/
+xcuserdata/
+*.xcuserstate

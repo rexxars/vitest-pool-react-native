@@ -1,0 +1,32 @@
+# Resolve react_native_pods.rb with node to allow for hoisting
+require Pod::Executable.execute_command('node', ['-p',
+  'require.resolve(
+    "react-native/scripts/react_native_pods.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+platform :ios, min_ios_version_supported
+prepare_react_native_project!
+
+target 'PoolConsumer' do
+  config = use_native_modules!
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  post_install do |installer|
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false,
+    )
+    # RN 0.81.5 pins fmt 11.0.2. Its C++20 consteval checks fail with newer
+    # Apple Clang versions. Compile the fmt pod itself in C++17 mode.
+    fmt = installer.pods_project.targets.find { |target| target.name == 'fmt' }
+    fmt&.build_configurations&.each do |configuration|
+      configuration.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+    end
+  end
+end

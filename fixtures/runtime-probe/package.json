@@ -1,0 +1,17 @@
+{
+  "name": "runtime-probe",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "react-native": "./native.js",
+      "default": "./default.js"
+    },
+    "./format": {
+      "require": "./cjs.cjs",
+      "import": "./esm.js"
+    }
+  }
+}

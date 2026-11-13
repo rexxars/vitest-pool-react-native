@@ -1,0 +1,30 @@
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+react {
+    reactNativeDir = file("../../node_modules/react-native")
+    codegenDir = file("../../node_modules/@react-native/codegen")
+    cliFile = new File(reactNativeDir.get().asFile, "cli.js")
+    autolinkLibrariesWithApp()
+}
+
+android {
+    namespace "dev.vitest.pool.consumer"
+    compileSdk rootProject.ext.compileSdkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    ndkVersion rootProject.ext.ndkVersion
+
+    defaultConfig {
+        applicationId "dev.vitest.pool.consumer"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+    }
+}
+
+dependencies {
+    implementation("com.facebook.react:react-android")
+    implementation("com.facebook.react:hermes-android")
+}

@@ -1,0 +1,14 @@
+pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
+plugins { id("com.facebook.react.settings") }
+
+extensions.configure(com.facebook.react.ReactSettingsExtension) { settings ->
+    settings.autolinkLibrariesFromCommand(
+        ["node", file("../node_modules/@react-native-community/cli/build/bin.js").absolutePath, "config"],
+        file(".."),
+        files("../package-lock.json", "../package.json")
+    )
+}
+
+rootProject.name = "PoolConsumer"
+include(":app")
+includeBuild("../node_modules/@react-native/gradle-plugin")

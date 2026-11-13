@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2024", "DOM"],
+    "types": ["node"],
+    "allowJs": true,
+    "paths": {"vitest-pool-react-native": ["./src/index.ts"]},
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["src", "scripts", "*.config.ts", "tests"]
+}

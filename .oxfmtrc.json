@@ -1,0 +1,8 @@
+{
+  "bracketSpacing": false,
+  "printWidth": 100,
+  "semi": false,
+  "singleQuote": true,
+  "ignorePatterns": ["dist", "template", "package-lock.json"],
+  "proseWrap": "preserve"
+}
