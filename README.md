@@ -54,7 +54,9 @@ The pool runs one test file at a time on each device. You can leave `maxWorkers`
 
 ## GitHub Actions
 
-For a JavaScript library that uses the same code on both platforms, I'd start with one iOS job. It exercises Metro's `react-native` resolution and runs the result in Hermes. Add Android if your library or a dependency uses platform-specific files, native modules or `Platform.OS`.
+For a JavaScript library that uses the same code on both platforms, one native job exercises Metro's `react-native` resolution and runs the result in Hermes. Use both if your library or a dependency uses platform-specific files, native modules or `Platform.OS`.
+
+iOS takes fewer workflow steps. If you care more about the time you wait for a pull request check, I'd start with Android. On fresh GitHub-hosted runners, the same plain React Native suite took about 7 minutes end to end on Android and 27 minutes on iOS. Most of that time went into setting up the host. [GitHub Actions run](https://github.com/rexxars/vitest-pool-react-native/actions/runs/43517954198)
 
 Once you've added the pool and its peers to your lockfile and configured the `ios` Vitest project above, save this as `.github/workflows/react-native.yml`. If you're installing the pool from a local tarball, make sure the runner can find it at the path in the lockfile.
 
@@ -89,6 +91,8 @@ script: |
   npx vitest-pool-react-native setup android
   npx vitest run --project android
 ```
+
+For repeated Android runs, the build output worth caching is the debug APK. On a cache hit, install it on the booted emulator with `adb install -r path/to/app-debug.apk` and run Vitest. Key it by the pool version, native host inputs and emulator architecture. An [AVD snapshot](https://github.com/ReactiveCircus/android-emulator-runner#usage) can also save boot time.
 
 ## Set up a device
 
