@@ -50,6 +50,44 @@ export default defineConfig({
 
 Import `test`, `expect` and hooks from `vitest` as usual. Tests that import your source by relative path exercise that source. To check the package entry points your users get, install your library's `npm pack` tarball in a test project and import it by package name.
 
+## GitHub Actions
+
+For a JavaScript library that uses the same code on both platforms, I'd start with one iOS job. It exercises Metro's `react-native` resolution and runs the result in Hermes. Add Android if your library or a dependency uses platform-specific files, native modules or `Platform.OS`.
+
+Once you've added the pool and its peers to your lockfile and configured the `ios` Vitest project above, save this as `.github/workflows/react-native.yml`. If you're installing the pool from a local tarball, make sure the runner can find it at the path in the lockfile.
+
+```yaml
+name: React Native
+on: [push, pull_request]
+
+jobs:
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler: '4.0.23'
+      - run: npm ci
+      - run: npx vitest-pool-react-native setup ios
+      - run: npx vitest run --project ios
+```
+
+The macOS runner includes Xcode and an iPhone simulator. Each fresh job builds and installs the host. If your library's exports point at generated files, add your library's build step after `npm ci`.
+
+For Android on `ubuntu-latest`, use the SDK and emulator steps in [this repository's Android job](.github/workflows/test.yml). Replace the emulator action's `script` with the following so it runs your library's tests on the booted emulator:
+
+```yaml
+script: |
+  npx vitest-pool-react-native setup android
+  npx vitest run --project android
+```
+
 ## Set up a device
 
 Run setup once per device, and again when you update the pool's native host. It builds a small development app in your user cache and installs it on the selected device. There's nothing to scaffold in your repository. Subsequent JavaScript changes only need a Vitest run.
