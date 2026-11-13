@@ -42,7 +42,7 @@ export async function lockDevice(serial: string): Promise<Cleanup> {
   } catch (error) {
     if (!(error instanceof Error && 'code' in error && error.code === 'ELOCKED')) throw error
     throw new Error(
-      `Android device ${serial} is in use. Use maxWorkers: 1 or select another device.`,
+      `Android device ${serial} is in use. Wait for the other process to finish or select another device.`,
       {cause: error},
     )
   }

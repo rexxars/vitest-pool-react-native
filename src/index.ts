@@ -4,12 +4,12 @@ import * as android from './android.js'
 import {appId, appName, idleTimeout} from './constants.js'
 import type {AndroidPoolOptions, IOSPoolOptions} from './types/options.js'
 import * as ios from './simulator.js'
-import type {DeviceDriver, Platform, PoolConfig} from './types.js'
+import type {DeviceDriver, Platform, PoolConfig, Simulator} from './types.js'
 import {NativeWorker} from './worker.js'
 
 export type {AndroidPoolOptions, IOSPoolOptions} from './types/options.js'
 
-function nativePool<Device>(
+function nativePool<Device extends string | Simulator>(
   platform: Platform,
   driver: DeviceDriver<Device>,
   options: PoolConfig,

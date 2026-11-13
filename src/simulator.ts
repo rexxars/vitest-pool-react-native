@@ -92,7 +92,7 @@ export async function lockDevice(device: Simulator): Promise<Cleanup> {
     await exec('/usr/bin/shlock', ['-p', String(process.pid), '-f', file])
   } catch (cause) {
     throw new Error(
-      `iOS simulator ${device.name} is in use. Use maxWorkers: 1, or select another simulator.`,
+      `iOS simulator ${device.name} is in use. Wait for the other process to finish or select another simulator.`,
       {cause},
     )
   }

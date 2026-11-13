@@ -2,7 +2,7 @@
 import {defineConfig} from 'vitest/config'
 import {androidPool, iosPool} from 'vitest-pool-react-native'
 
-const native = {include: ['tests/**/*.{test,spec}.{js,jsx,ts,tsx}'], maxWorkers: 1}
+const native = {include: ['tests/**/*.{test,spec}.{js,jsx,ts,tsx}']}
 
 export default defineConfig({
   test: {
