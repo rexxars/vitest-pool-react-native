@@ -1,0 +1,53 @@
+name: Run Vitest on Android
+description: Build or restore the plain React Native test host and run a Vitest project on a Linux x64 Android emulator.
+inputs:
+  project:
+    description: Name of the Android project in your Vitest config.
+    default: android
+  working-directory:
+    description: Library directory containing the installed pool and Vitest config.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Identify the Android host
+      id: host
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: bash "$GITHUB_ACTION_PATH/host-cache.sh"
+    - name: Cache the native host APK
+      id: apk
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.host.outputs.apk }}
+        key: ${{ steps.host.outputs.key }}
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+    - uses: android-actions/setup-android@v3
+      with:
+        packages: platform-tools
+    - name: Install native build tools
+      if: steps.apk.outputs.cache-hit != 'true'
+      shell: bash
+      run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
+    - name: Enable emulator acceleration
+      shell: bash
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+    - name: Run the Android project
+      uses: reactivecircus/android-emulator-runner@v2
+      env:
+        HOST_APK: ${{ steps.host.outputs.apk }}
+        APK_CACHE_HIT: ${{ steps.apk.outputs.cache-hit }}
+        VITEST_PROJECT: ${{ inputs.project }}
+        HOST_SCRIPT: ${{ github.action_path }}/run.sh
+      with:
+        api-level: 35
+        arch: x86_64
+        target: google_apis
+        working-directory: ${{ inputs.working-directory }}
+        script: bash "$HOST_SCRIPT"
