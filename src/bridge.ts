@@ -9,6 +9,7 @@ import {once} from 'node:events'
 import {text} from 'node:stream/consumers'
 import {parse} from 'flatted'
 import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping'
+import {DeviceStartupTimeout} from './startup-timeout.js'
 
 // Hermes reports stack positions in the downloaded bundle, with 1-based columns.
 function mapError(error: {stack?: string}, map: TraceMap) {
@@ -42,7 +43,9 @@ function mapTaskErrors(task: RunnerTask, map: TraceMap) {
   for (const child of 'tasks' in task ? task.tasks : []) mapTaskErrors(child, map)
 }
 
-export async function openBridge(rpc: RunnerRPC, signal: AbortSignal, listenPort = 0) {
+type ResultRPC = Pick<RunnerRPC, 'onQueued' | 'onCollected' | 'onTaskUpdate'>
+
+export async function openBridge(rpc: ResultRPC, signal: AbortSignal, listenPort = 0) {
   const resultPath = '/results/' + randomUUID()
   const server = createServer()
   const completion = Promise.withResolvers<void>()
@@ -53,6 +56,10 @@ export async function openBridge(rpc: RunnerRPC, signal: AbortSignal, listenPort
   let timer: ReturnType<typeof setTimeout> | undefined
   let timeout: number
   let completed = false
+  let testFile: string
+  let statusRequested = false
+  let bundleRequested = false
+  let progress = 'waiting for the app to contact the development server'
 
   function fail(error: unknown): void {
     if (completed) return
@@ -62,24 +69,30 @@ export async function openBridge(rpc: RunnerRPC, signal: AbortSignal, listenPort
   }
   function resetDeadline() {
     clearTimeout(timer)
-    timer = setTimeout(
-      () =>
-        fail(
-          new Error(
-            `No response from the React Native app for ${timeout} ms. Check the app's development server address, registered component and device log.`,
-          ),
-        ),
-      timeout,
-    )
+    timer = setTimeout(() => {
+      const message = `${testFile} timed out after ${timeout} ms: ${progress}.`
+      fail(bundleRequested ? new Error(message) : new DeviceStartupTimeout(message))
+    }, timeout)
   }
   const abort = () => fail(signal.reason)
   signal.addEventListener('abort', abort, {once: true})
   server.on('request', async (request, response) => {
     try {
       const path = request.url?.split('?')[0]
-      if (request.method === 'GET' && path === '/status')
+      if (request.method === 'GET' && path === '/status') {
+        if (bundle && !completed && !bundleRequested && !statusRequested) {
+          statusRequested = true
+          progress = 'the packager status was requested, waiting for the bundle request'
+          resetDeadline()
+        }
         return response.end('packager-status:running')
-      if (request.method === 'GET' && path === '/index.bundle' && bundle) {
+      }
+      if (request.method === 'GET' && path === '/index.bundle' && bundle && !completed) {
+        if (!bundleRequested) {
+          bundleRequested = true
+          progress = 'the bundle was requested, waiting for the first runner report'
+          resetDeadline()
+        }
         response.setHeader('Content-Type', 'application/javascript')
         return response.end(bundle)
       }
@@ -101,6 +114,7 @@ export async function openBridge(rpc: RunnerRPC, signal: AbortSignal, listenPort
         throw error
       }
       const event: ResultEvent = parse(payload)
+      progress = 'last runner report was ' + event[0]
       switch (event[0]) {
         case 'queued':
           rpc.onQueued(event[1])
@@ -139,10 +153,11 @@ export async function openBridge(rpc: RunnerRPC, signal: AbortSignal, listenPort
       endpoint: `http://127.0.0.1:${port}${resultPath}`,
       result: completion.promise,
       fail,
-      serve(result: RunBuildResult, idleTimeout: number) {
+      serve(result: RunBuildResult, idleTimeout: number, filepath: string) {
         signal.throwIfAborted()
         bundle = result.code
         map = new TraceMap(result.map)
+        testFile = filepath
         timeout = idleTimeout
         resetDeadline()
       },
