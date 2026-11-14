@@ -1,0 +1,52 @@
+name: Run Vitest on iOS
+description: Build or restore the plain React Native simulator app and run a Vitest project on macOS.
+inputs:
+  project:
+    description: Name of the iOS project in your Vitest config.
+    default: ios
+  working-directory:
+    description: Library directory containing the installed pool and Vitest config.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Identify the iOS host and simulator
+      id: host
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: node "$GITHUB_ACTION_PATH/host-cache.mjs"
+    - name: Cache the simulator app
+      id: app
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.host.outputs.app }}
+        key: ${{ steps.host.outputs.key }}
+    - name: Set up Ruby and Bundler
+      if: steps.app.outputs.cache-hit != 'true'
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.4'
+        bundler: '4.0.23'
+    - name: Build and install the simulator app
+      if: steps.app.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        VITEST_IOS_DEVICE: ${{ steps.host.outputs.udid }}
+      run: npm exec --no -- vitest-pool-react-native setup ios
+    - name: Install the cached simulator app
+      if: steps.app.outputs.cache-hit == 'true'
+      shell: bash
+      env:
+        SIMULATOR: ${{ steps.host.outputs.udid }}
+        APP: ${{ steps.host.outputs.app }}
+      run: |
+        xcrun simctl bootstatus "$SIMULATOR" -b
+        xcrun simctl install "$SIMULATOR" "$APP"
+    - name: Run the iOS project
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        VITEST_IOS_DEVICE: ${{ steps.host.outputs.udid }}
+        VITEST_PROJECT: ${{ inputs.project }}
+      run: npm exec --no -- vitest run --project "$VITEST_PROJECT"

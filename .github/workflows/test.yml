@@ -34,12 +34,11 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.4'
-          bundler: '4.0.23'
       - run: npm ci
-      - run: npm run test:package -- ios 5.1.0
+      - run: npm run test:package -- ios 5.1.0 --prepare-in "$RUNNER_TEMP/test-library"
+      - uses: ./ios
+        with:
+          working-directory: ${{ runner.temp }}/test-library
 
   android:
     runs-on: ubuntu-latest
