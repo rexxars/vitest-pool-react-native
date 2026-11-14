@@ -1,33 +1,16 @@
-name: Test
-
-on:
-  pull_request:
-  workflow_dispatch:
-  workflow_call:
-
+name: Verify cached simulator startup
+on: workflow_dispatch
 permissions:
   contents: read
-
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    strategy:
-      matrix:
-        node: [22, 24, 26]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-          cache: npm
-      - run: npm ci
-      - run: npm run check
-      - run: npm pack --dry-run
-
   ios:
+    name: Cached iOS / ${{ matrix.scenario }}
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [normal, stalled-launch, failed-assertion]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,21 +19,63 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:package -- ios 5.1.0 --prepare-in "$RUNNER_TEMP/test-library"
+      - name: Observe launches and simulate one startup stall
+        env:
+          SCENARIO: ${{ matrix.scenario }}
+        run: |
+          mkdir "$RUNNER_TEMP/simctl-wrapper"
+          cat > "$RUNNER_TEMP/simctl-wrapper/xcrun" <<'SCRIPT'
+          #!/bin/bash
+          if [[ "$1 $2" == 'simctl launch' ]]; then
+            echo launch >> "$RUNNER_TEMP/simulator-operations"
+            if [[ "$TEST_SCENARIO" == 'stalled-launch' && ! -f "$RUNNER_TEMP/stalled" ]]; then
+              touch "$RUNNER_TEMP/stalled"
+              exec /bin/sleep 300
+            fi
+          elif [[ "$1 $2" == 'simctl shutdown' ]]; then
+            echo shutdown >> "$RUNNER_TEMP/simulator-operations"
+          fi
+          exec /usr/bin/xcrun "$@"
+          SCRIPT
+          chmod +x "$RUNNER_TEMP/simctl-wrapper/xcrun"
+          echo "$RUNNER_TEMP/simctl-wrapper" >> "$GITHUB_PATH"
+          echo "TEST_SCENARIO=$SCENARIO" >> "$GITHUB_ENV"
+      - name: Set up the broken library
+        if: matrix.scenario == 'failed-assertion'
+        working-directory: ${{ runner.temp }}/test-library
+        run: |
+          cat > vitest.config.ts <<'CONFIG'
+          import {defineConfig} from 'vitest/config'
+          import {iosPool} from 'vitest-pool-react-native'
+          export default defineConfig({test: {
+            reporters: ['default', 'json'], outputFile: {json: 'ios-results.json'},
+            projects: [{test: {name: 'ios', include: ['broken.test.ts'], pool: iosPool()}}]
+          }})
+          CONFIG
+          cat > broken.test.ts <<'TEST'
+          import {expect, test} from 'vitest'
+          test('the library assertion reaches the reporter', () => expect('from Hermes').toBe('expected value'))
+          TEST
       - uses: ./ios
+        id: tests
+        continue-on-error: ${{ matrix.scenario == 'failed-assertion' }}
         with:
           working-directory: ${{ runner.temp }}/test-library
-
-  android:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run test:package -- android 5.0.4 --prepare-in "$RUNNER_TEMP/test-library"
-      - uses: ./android
-        with:
-          working-directory: ${{ runner.temp }}/test-library
+      - name: Check observed recovery and test results
+        env:
+          SCENARIO: ${{ matrix.scenario }}
+          OUTCOME: ${{ steps.tests.outcome }}
+        working-directory: ${{ runner.temp }}/test-library
+        run: |
+          cat "$RUNNER_TEMP/simulator-operations"
+          if [[ "$SCENARIO" == failed-assertion ]]; then
+            test "$OUTCOME" = failure
+            test "$(cat "$RUNNER_TEMP/simulator-operations")" = launch
+            node -e "const a = require('./ios-results.json').testResults.flatMap(file => file.assertionResults); if (a.length !== 1 || a[0].status !== 'failed' || !a[0].failureMessages.join().includes('from Hermes')) throw Error(JSON.stringify(a))"
+          elif [[ "$SCENARIO" == stalled-launch ]]; then
+            test -f "$RUNNER_TEMP/stalled"
+            test "$(grep -c shutdown "$RUNNER_TEMP/simulator-operations")" -ge 1
+            test "$OUTCOME" = success
+          else
+            test "$OUTCOME" = success
+          fi
