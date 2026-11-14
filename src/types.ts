@@ -17,13 +17,15 @@ export interface DeviceDriver<Device> {
   resolveDevice(requested?: string): Promise<Device>
   lockDevice(device: Device): Promise<Cleanup>
   prepareDevice(device: Device, appId: string, port?: number): Promise<number | void>
+  restartDevice?(device: Device): Promise<void>
   launch(
     device: Device,
     appId: string,
     port: number,
     fail: (error: Error) => void,
-  ): Cleanup | Promise<Cleanup>
+  ): StopApp | Promise<StopApp>
 }
+export type StopApp = (reportDiagnostics?: boolean) => Promise<void>
 
 export interface PoolConfig extends NativePoolOptions {
   appId: string

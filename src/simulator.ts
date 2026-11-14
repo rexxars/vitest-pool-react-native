@@ -1,16 +1,34 @@
 // @env node
-import type {Simulator, Cleanup} from './types.js'
+import type {Simulator, Cleanup, StopApp} from './types.js'
 import {appId as defaultAppId} from './constants.js'
 import {execFile, spawn} from 'node:child_process'
 import {unlink} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {promisify} from 'node:util'
+import {DeviceStartupTimeout} from './startup-timeout.js'
 
 const exec = promisify(execFile)
 async function simctl(...args: string[]): Promise<string> {
-  const {stdout} = await exec('xcrun', ['simctl', ...args], {timeout: 120_000})
-  return stdout
+  try {
+    const {stdout} = await exec('xcrun', ['simctl', ...args], {
+      timeout: 120_000,
+      killSignal: 'SIGKILL',
+    })
+    return stdout
+  } catch (cause) {
+    if (cause instanceof Error && 'killed' in cause && cause.killed) {
+      throw new DeviceStartupTimeout(`simctl ${args.join(' ')} did not respond within 120000 ms`, {
+        cause,
+      })
+    }
+    throw cause
+  }
+}
+
+export async function restartDevice(device: Simulator): Promise<void> {
+  // prepareDevice boots the same simulator again, keeping the installed host.
+  await simctl('shutdown', device.udid)
 }
 
 export async function resolveDevice(requested?: string): Promise<Simulator> {
@@ -39,6 +57,7 @@ export async function prepareDevice(device: Simulator, bundleId: string): Promis
   try {
     await simctl('get_app_container', device.udid, bundleId, 'app')
   } catch (cause) {
+    if (cause instanceof DeviceStartupTimeout) throw cause
     throw new Error(
       `Install the development test app ${bundleId} on ${device.name} (${device.udid}) before running the iOS pool.${bundleId === defaultAppId ? ' Run npx vitest-pool-react-native setup ios.' : ''}`,
       {cause},
@@ -51,13 +70,14 @@ export function launch(
   bundleId: string,
   port: number,
   failed: (error: Error) => void,
-): Cleanup {
+): StopApp {
   const child = spawn(
     'xcrun',
     [
       'simctl',
       'launch',
       '--console',
+      '--terminate-running-process',
       device.udid,
       bundleId,
       '-RCT_jsLocation',
@@ -78,10 +98,19 @@ export function launch(
       resolve()
     }),
   )
-  return async () => {
+  return async (reportDiagnostics) => {
     // simctl --console forwards SIGTERM to the app it launched.
     child.kill('SIGTERM')
-    await closed
+    const kill = setTimeout(() => child.kill('SIGKILL'), 5000)
+    try {
+      await closed
+    } finally {
+      clearTimeout(kill)
+      if (reportDiagnostics)
+        console.warn(
+          `[react-native-ios] ${device.name} (${device.udid}), ${bundleId}: ${tail.trim() || 'simctl launch produced no console output'}`,
+        )
+    }
   }
 }
 

@@ -100,6 +100,8 @@ ios:
 
 The iOS action accepts the same `working-directory` and `project` inputs as Android. The project name defaults to `ios`. The cache key includes the pool version, native build inputs, runner architecture, Xcode and simulator SDK build. You can change library code and tests without rebuilding the app.
 
+If the simulator stops responding before it requests a test file’s Metro bundle, the action lets the pool restart the simulator and try that file’s startup once. Once the app requests the bundle, a timeout fails the run and reports the last activity the pool saw. Update your pool tarball along with the action to get this behavior.
+
 ## Set up a device
 
 Run setup once per device, and again when you update the pool's native host. It builds a small development app in your user cache and installs it on the selected device. There's nothing to scaffold in your repository. For everyday testing, run Vitest directly. It reuses the installed native app and bundles your current JavaScript with Metro for each test file. Running `setup` explicitly invokes the native build again and reinstalls the app.

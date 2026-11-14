@@ -7,6 +7,7 @@ import {createMethodsRPC, type PoolOptions, type PoolWorker} from 'vitest/node'
 import {openBridge} from './bridge.js'
 import {bundle} from './bundle.js'
 import {runOnDevice} from './device-queue.js'
+import {withStartupRecovery} from './startup-timeout.js'
 import type {
   DeviceDriver,
   Method,
@@ -95,21 +96,33 @@ export class NativeWorker<Device extends string | Simulator>
     signal.throwIfAborted()
     const unlock = await this.driver.lockDevice(device)
     try {
-      signal.throwIfAborted()
-      const metroPort = await this.driver.prepareDevice(
-        device,
-        this.options.appId,
-        this.options.metroPort,
-      )
+      let port: number | undefined
+      const restart = this.driver.restartDevice
       // Each file starts with fresh globals and a new Metro module cache.
       for (const spec of files) {
         signal.throwIfAborted()
-        const dir = await mkdtemp(join(config.root, '.vitest-' + this.platform + '-'))
-        try {
-          await this.runFile(dir, device, spec, method, metroPort ?? 0, workerId, config)
-        } finally {
-          await rm(dir, {recursive: true, force: true})
+        const run = async () => {
+          port ??=
+            (await this.driver.prepareDevice(device, this.options.appId, this.options.metroPort)) ??
+            0
+          const dir = await mkdtemp(join(config.root, '.vitest-' + this.platform + '-'))
+          try {
+            await this.runFile(dir, device, spec, method, port, workerId, config)
+          } finally {
+            await rm(dir, {recursive: true, force: true})
+          }
         }
+        const recover =
+          restart && process.env.VITEST_IOS_RECOVER_STARTUP === '1'
+            ? async (error: Error) => {
+                console.warn(
+                  `[${this.name}] ${spec.filepath}: ${error.message} Restarting the simulator and retrying startup once.`,
+                )
+                await restart(device)
+                port = undefined
+              }
+            : undefined
+        await withStartupRecovery(run, recover, signal)
       }
     } finally {
       await unlock()
@@ -127,6 +140,7 @@ export class NativeWorker<Device extends string | Simulator>
     const {signal} = this.controller
     const bridge = await openBridge(this.rpc, signal, metroPort)
     let terminate
+    let finished = false
     try {
       const result = await bundle({
         dir,
@@ -139,12 +153,13 @@ export class NativeWorker<Device extends string | Simulator>
         platform: this.platform,
         worker: {workerId, concurrencyId: this.concurrencyId},
       })
-      bridge.serve(result, this.options.idleTimeout)
+      bridge.serve(result, this.options.idleTimeout, spec.filepath)
       terminate = await this.driver.launch(device, this.options.appId, bridge.port, bridge.fail)
       await bridge.result
+      finished = true
     } finally {
       try {
-        await terminate?.()
+        await terminate?.(!finished)
       } finally {
         await bridge.close()
       }
