@@ -83,7 +83,7 @@ The action sets up Java and the Android SDK, enables KVM, boots an API 35 x86_64
 
 ### iOS
 
-For iOS, add this job under `jobs`. The macOS runner includes Xcode and an iPhone simulator.
+For iOS, add this job under `jobs`. The macOS runner includes Xcode and an iPhone simulator. On a cache miss the action sets up Ruby and CocoaPods, then builds and installs the plain React Native simulator app. On a hit it boots the simulator and installs the cached `.app` directly.
 
 ```yaml
 ios:
@@ -94,16 +94,11 @@ ios:
       with:
         node-version: 24
         cache: npm
-    - uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '3.4'
-        bundler: '4.0.23'
     - run: npm ci
-    - run: npx vitest-pool-react-native setup ios
-    - run: npx vitest run --project ios
+    - uses: rexxars/vitest-pool-react-native/ios@main
 ```
 
-On fresh GitHub-hosted runners the plain suite took about 7 minutes end to end on Android and 27 minutes on iOS in one comparison. Most of that time went into setting up the host. [GitHub Actions run](https://github.com/rexxars/vitest-pool-react-native/actions/runs/43517954198)
+The iOS action accepts the same `working-directory` and `project` inputs as Android. The project name defaults to `ios`. The cache key includes the pool version, native build inputs, runner architecture, Xcode and simulator SDK build. You can change library code and tests without rebuilding the app.
 
 ## Set up a device
 
