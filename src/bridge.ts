@@ -56,7 +56,7 @@ export async function openBridge(rpc: ResultRPC, signal: AbortSignal, listenPort
   let timer: ReturnType<typeof setTimeout> | undefined
   let timeout: number
   let completed = false
-  let file: string
+  let testFile: string
   let statusRequested = false
   let bundleRequested = false
   let progress = 'waiting for the app to contact the development server'
@@ -70,7 +70,7 @@ export async function openBridge(rpc: ResultRPC, signal: AbortSignal, listenPort
   function resetDeadline() {
     clearTimeout(timer)
     timer = setTimeout(() => {
-      const message = `${file} timed out after ${timeout} ms: ${progress}.`
+      const message = `${testFile} timed out after ${timeout} ms: ${progress}.`
       fail(bundleRequested ? new Error(message) : new DeviceStartupTimeout(message))
     }, timeout)
   }
@@ -157,7 +157,7 @@ export async function openBridge(rpc: ResultRPC, signal: AbortSignal, listenPort
         signal.throwIfAborted()
         bundle = result.code
         map = new TraceMap(result.map)
-        file = filepath
+        testFile = filepath
         timeout = idleTimeout
         resetDeadline()
       },
