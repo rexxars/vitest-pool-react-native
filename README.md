@@ -56,47 +56,58 @@ The pool runs one test file at a time on each device. You can leave `maxWorkers`
 
 For a JavaScript library that uses the same code on both platforms, one native job exercises Metro's `react-native` resolution and runs the result in Hermes. Use both if your library or a dependency uses platform-specific files, native modules or `Platform.OS`.
 
-iOS takes fewer workflow steps. If you care more about the time you wait for a pull request check, I'd start with Android. On fresh GitHub-hosted runners, the same plain React Native suite took about 7 minutes end to end on Android and 27 minutes on iOS. Most of that time went into setting up the host. [GitHub Actions run](https://github.com/rexxars/vitest-pool-react-native/actions/runs/43517954198)
+### Android
 
-Once you've added the pool and its peers to your lockfile and configured the `ios` Vitest project above, save this as `.github/workflows/react-native.yml`. If you're installing the pool from a local tarball, make sure the runner can find it at the path in the lockfile.
+Add the pool and its peers to your library's lockfile and configure the `android` Vitest project above. If you're using a local tarball, it needs to be available on the runner at the path in your lockfile. Save this as `.github/workflows/react-native.yml`:
 
 ```yaml
 name: React Native
 on: [push, pull_request]
 
 jobs:
-  ios:
-    runs-on: macos-15
+  android:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.4'
-          bundler: '4.0.23'
       - run: npm ci
-      - run: npx vitest-pool-react-native setup ios
-      - run: npx vitest run --project ios
+      - uses: rexxars/vitest-pool-react-native/android@main
 ```
 
-The macOS runner includes Xcode and an iPhone simulator. Each fresh job builds and installs the host. If your library's exports point at generated files, add your library's build step after `npm ci`.
+If your library's exports point at generated files, add its build step after `npm ci`. For a monorepo, pass `with: {working-directory: packages/my-library}`. If your Vitest project has a different name, pass it as `project` (defaults to `android`).
 
-For Android on `ubuntu-latest`, use the SDK and emulator steps in [this repository's Android job](.github/workflows/test.yml). Replace the emulator action's `script` with the following so it runs your library's tests on the booted emulator:
+The action sets up Java and the Android SDK, enables KVM, boots an API 35 x86_64 emulator and runs the Vitest project. The first run builds the plain React Native host. Later jobs can install the APK from GitHub Actions' cache. Changing your library's JavaScript or tests only rebuilds the Metro bundle. A different pool version or native host build inputs produce a new APK cache key.
+
+### iOS
+
+For iOS, add this job under `jobs`. The macOS runner includes Xcode and an iPhone simulator.
 
 ```yaml
-script: |
-  npx vitest-pool-react-native setup android
-  npx vitest run --project android
+ios:
+  runs-on: macos-15
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: npm
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.4'
+        bundler: '4.0.23'
+    - run: npm ci
+    - run: npx vitest-pool-react-native setup ios
+    - run: npx vitest run --project ios
 ```
 
-For repeated Android runs, the build output worth caching is the debug APK. On a cache hit, install it on the booted emulator with `adb install -r path/to/app-debug.apk` and run Vitest. Key it by the pool version, native host inputs and emulator architecture. An [AVD snapshot](https://github.com/ReactiveCircus/android-emulator-runner#usage) can also save boot time.
+On fresh GitHub-hosted runners the plain suite took about 7 minutes end to end on Android and 27 minutes on iOS in one comparison. Most of that time went into setting up the host. [GitHub Actions run](https://github.com/rexxars/vitest-pool-react-native/actions/runs/43517954198)
 
 ## Set up a device
 
-Run setup once per device, and again when you update the pool's native host. It builds a small development app in your user cache and installs it on the selected device. There's nothing to scaffold in your repository. Subsequent JavaScript changes only need a Vitest run.
+Run setup once per device, and again when you update the pool's native host. It builds a small development app in your user cache and installs it on the selected device. There's nothing to scaffold in your repository. For everyday testing, run Vitest directly. It reuses the installed native app and bundles your current JavaScript with Metro for each test file. Running `setup` explicitly invokes the native build again and reinstalls the app.
 
 ### iOS
 
