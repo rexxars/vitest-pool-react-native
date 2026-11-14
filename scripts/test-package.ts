@@ -1,13 +1,15 @@
 // @env node
 import {execFileSync} from 'node:child_process'
-import {cp, mkdtemp, readFile, readdir, rm, writeFile} from 'node:fs/promises'
+import {cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
-const [platform, version] = process.argv.slice(2)
+const [platform, version, flag, destination] = process.argv.slice(2)
 if (platform !== 'ios' && platform !== 'android') throw new Error('Choose ios or android')
+if (flag !== undefined && (flag !== '--prepare-in' || !destination))
+  throw new Error('Expected --prepare-in <new directory>')
 
 const npm = process.env.npm_execpath
 if (!npm) throw new Error('Run this script with npm run test:package')
@@ -15,7 +17,9 @@ function run(cwd: string, ...args: string[]): void {
   execFileSync(process.execPath, args, {cwd, stdio: 'inherit'})
 }
 
-const work = await mkdtemp(join(tmpdir(), 'vitest-native-package-'))
+// CI hands the installed consumer over to the Android action in the next step.
+const work = destination ?? (await mkdtemp(join(tmpdir(), 'vitest-native-package-')))
+if (destination) await mkdir(destination)
 try {
   run(root, npm, 'pack', '--pack-destination', work)
   const archive = (await readdir(work)).find((file) => file.endsWith('.tgz'))
@@ -43,8 +47,10 @@ try {
     await cp(join(root, path), join(work, path), {recursive: true})
   }
   run(work, npm, 'install', '--no-audit', '--no-fund')
-  run(work, npm, 'exec', '--', 'vitest-pool-react-native', 'setup', platform)
-  run(work, npm, 'exec', '--', 'vitest', 'run', '--project', platform)
+  if (!destination) {
+    run(work, npm, 'exec', '--', 'vitest-pool-react-native', 'setup', platform)
+    run(work, npm, 'exec', '--', 'vitest', 'run', '--project', platform)
+  }
 } finally {
-  await rm(work, {recursive: true, force: true})
+  if (!destination) await rm(work, {recursive: true, force: true})
 }

@@ -50,22 +50,8 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-      - uses: android-actions/setup-android@v3
-        with:
-          packages: platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.1.12297006 cmake;3.22.1
       - run: npm ci
-      - name: Enable emulator acceleration
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - uses: reactivecircus/android-emulator-runner@v2
+      - run: npm run test:package -- android 5.0.4 --prepare-in "$RUNNER_TEMP/test-library"
+      - uses: ./android
         with:
-          api-level: 35
-          arch: x86_64
-          target: google_apis
-          script: npm run test:package -- android 5.0.4
+          working-directory: ${{ runner.temp }}/test-library
