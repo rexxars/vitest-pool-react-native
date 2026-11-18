@@ -17,15 +17,15 @@ runs:
       run: bash "$GITHUB_ACTION_PATH/host-cache.sh"
     - name: Cache the native host APK
       id: apk
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ${{ steps.host.outputs.apk }}
         key: ${{ steps.host.outputs.key }}
-    - uses: actions/setup-java@v4
+    - uses: actions/setup-java@v6
       with:
         distribution: temurin
         java-version: 17
-    - uses: android-actions/setup-android@v3
+    - uses: android-actions/setup-android@v4
       with:
         packages: platform-tools
     - name: Install native build tools
