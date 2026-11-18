@@ -1,5 +1,15 @@
 # vitest-pool-react-native
 
+## 2.0.0
+
+### Major Changes
+
+- 41f6b1f: First stable release. The package version jumps from 0.1.0 to 2.0.0 because 1.0.0 was published and removed from npm earlier, and npm does not allow reusing a version number.
+
+### Minor Changes
+
+- 9302c27: Use React Native's prebuilt iOS binaries when building the simulator host, so setup only compiles the small host app. Pass `--from-source` to `setup ios` (or `from-source: true` to the iOS action) to compile React Native from source as before.
+
 ## 0.1.0
 
 ### Minor Changes
