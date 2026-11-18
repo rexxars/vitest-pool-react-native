@@ -22,7 +22,7 @@ runs:
       run: node "$GITHUB_ACTION_PATH/host-cache.mjs"
     - name: Cache the simulator app
       id: app
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ${{ steps.host.outputs.app }}
         key: ${{ steps.host.outputs.key }}
