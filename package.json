@@ -1,6 +1,6 @@
 {
   "name": "vitest-pool-react-native",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Run Vitest library tests with Metro and Hermes on iOS and Android",
   "keywords": [
     "android",
