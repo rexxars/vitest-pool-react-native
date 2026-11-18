@@ -7,6 +7,9 @@ inputs:
   working-directory:
     description: Library directory containing the installed pool and Vitest config.
     default: .
+  from-source:
+    description: Compile React Native from source instead of using its prebuilt iOS binaries. Slower, only needed for native changes to React Native itself.
+    default: 'false'
 runs:
   using: composite
   steps:
@@ -14,6 +17,8 @@ runs:
       id: host
       shell: bash
       working-directory: ${{ inputs.working-directory }}
+      env:
+        VITEST_IOS_FROM_SOURCE: ${{ inputs.from-source == 'true' && '1' || '0' }}
       run: node "$GITHUB_ACTION_PATH/host-cache.mjs"
     - name: Cache the simulator app
       id: app
@@ -33,7 +38,13 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         VITEST_IOS_DEVICE: ${{ steps.host.outputs.udid }}
-      run: npm exec --no -- vitest-pool-react-native setup ios
+        FROM_SOURCE: ${{ inputs.from-source }}
+      run: |
+        if [ "$FROM_SOURCE" = true ]; then
+          npm exec --no -- vitest-pool-react-native setup ios --from-source
+        else
+          npm exec --no -- vitest-pool-react-native setup ios
+        fi
     - name: Install the cached simulator app
       if: steps.app.outputs.cache-hit == 'true'
       shell: bash

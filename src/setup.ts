@@ -1,6 +1,6 @@
 // @env node
 import {spawn} from 'node:child_process'
-import {cp, mkdir, rename} from 'node:fs/promises'
+import {copyFile, cp, mkdir, rename} from 'node:fs/promises'
 import {createRequire} from 'node:module'
 import {homedir} from 'node:os'
 import {join} from 'node:path'
@@ -24,9 +24,18 @@ function run(command: string, args: string[], cwd: string, env = process.env): P
   })
 }
 
-async function installIOS(app: string, udid: string): Promise<void> {
+async function installIOS(app: string, udid: string, fromSource: boolean): Promise<void> {
   const cwd = join(app, 'ios')
-  const env = {...process.env, BUNDLE_PATH: 'vendor/bundle'}
+  const env: NodeJS.ProcessEnv = {...process.env, BUNDLE_PATH: 'vendor/bundle'}
+  if (fromSource) {
+    // Podfile.lock is locked for the prebuilt pods. Source builds resolve a different set.
+    await copyFile(join(cwd, 'Podfile.source.lock'), join(cwd, 'Podfile.lock'))
+    delete env.RCT_USE_RN_DEP
+    delete env.RCT_USE_PREBUILT_RNCORE
+  } else {
+    env.RCT_USE_RN_DEP = '1'
+    env.RCT_USE_PREBUILT_RNCORE = '1'
+  }
   await run('bundle', ['install'], cwd, env)
   await run('bundle', ['exec', 'pod', 'install', '--deployment'], cwd, env)
   await run('xcrun', ['simctl', 'bootstatus', udid, '-b'], cwd)
@@ -85,7 +94,15 @@ function cacheRoot(): string {
   return process.env.XDG_CACHE_HOME || join(homedir(), '.cache')
 }
 
-export async function setup(platform: Platform): Promise<void> {
+export interface SetupOptions {
+  /** Compile React Native from source instead of using its prebuilt iOS binaries. */
+  fromSource?: boolean
+}
+
+export async function setup(platform: Platform, options: SetupOptions = {}): Promise<void> {
+  const fromSource = options.fromSource === true
+  if (fromSource && platform !== 'ios')
+    throw new Error('--from-source only applies to iOS. Android always compiles from source.')
   if (platform === 'ios' && process.platform !== 'darwin')
     throw new Error('iOS setup requires macOS with Xcode.')
   const {version}: {version: string} = req('../package.json')
@@ -97,7 +114,12 @@ export async function setup(platform: Platform): Promise<void> {
       `The included host uses react-native@${host.dependencies['react-native']}, but your project has ${rn}. Install the matching version or configure your own development app.`,
     )
   }
-  const work = join(cacheRoot(), 'vitest-pool-react-native', version, platform)
+  const work = join(
+    cacheRoot(),
+    'vitest-pool-react-native',
+    version,
+    fromSource ? `${platform}-source` : platform,
+  )
   const device =
     platform === 'ios'
       ? await ios.resolveDevice(process.env.VITEST_IOS_DEVICE)
@@ -116,7 +138,7 @@ export async function setup(platform: Platform): Promise<void> {
       if (process.platform === 'win32') await run('cmd.exe', ['/d', '/c', 'npm.cmd', ...args], work)
       else await run('npm', args, work)
       if (typeof device === 'string') await installAndroid(work, device)
-      else await installIOS(work, device.udid)
+      else await installIOS(work, device.udid, fromSource)
       console.log(
         `Installed on ${typeof device === 'string' ? device : device.name}. Run vitest run --project ${platform}.`,
       )

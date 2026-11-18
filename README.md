@@ -83,7 +83,7 @@ The action sets up Java and the Android SDK, enables KVM, boots an API 35 x86_64
 
 ### iOS
 
-For iOS, add this job under `jobs`. The macOS runner includes Xcode and an iPhone simulator. On a cache miss the action sets up Ruby and CocoaPods, then builds and installs the plain React Native simulator app. On a hit it boots the simulator and installs the cached `.app` directly.
+For iOS, add this job under `jobs`. The macOS runner includes Xcode and an iPhone simulator. On a cache miss the action sets up Ruby and CocoaPods, then builds and installs the plain React Native simulator app. React Native itself comes as prebuilt binaries, so only the small host app compiles. On a hit it boots the simulator and installs the cached `.app` directly.
 
 ```yaml
 ios:
@@ -98,7 +98,7 @@ ios:
     - uses: rexxars/vitest-pool-react-native/ios@main
 ```
 
-The iOS action accepts the same `working-directory` and `project` inputs as Android. The project name defaults to `ios`. The cache key includes the pool version, native build inputs, runner architecture, Xcode and simulator SDK build. You can change library code and tests without rebuilding the app.
+The iOS action accepts the same `working-directory` and `project` inputs as Android. Set `from-source: true` to compile React Native from source instead of using its prebuilt binaries. It's much slower and only matters if you need a native build of React Native itself. The project name defaults to `ios`. The cache key includes the pool version, native build inputs, runner architecture, Xcode and simulator SDK build. You can change library code and tests without rebuilding the app.
 
 If the simulator stops responding before it requests a test file’s Metro bundle, the action lets the pool restart the simulator and try that file’s startup once. Once the app requests the bundle, a timeout fails the run and reports the last activity the pool saw. Update your pool tarball along with the action to get this behavior.
 
@@ -108,7 +108,7 @@ Run setup once per device, and again when you update the pool's native host. It 
 
 ### iOS
 
-On macOS, install Xcode with an iPhone simulator runtime, and Ruby 3.2+ with Bundler. Setup installs the locked gems and CocoaPods dependencies and boots the simulator.
+On macOS, install Xcode with an iPhone simulator runtime, and Ruby 3.2+ with Bundler. Setup installs the locked gems and CocoaPods dependencies and boots the simulator. React Native comes as prebuilt binaries downloaded from Maven Central, so only the host app compiles. Pass `--from-source` to compile React Native yourself (slower, and kept in a separate cache directory).
 
 ```sh
 npx vitest-pool-react-native setup ios

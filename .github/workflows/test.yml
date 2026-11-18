@@ -26,8 +26,17 @@ jobs:
       - run: npm pack --dry-run
 
   ios:
+    name: ios (${{ matrix.name }})
     runs-on: macos-15
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: prebuilt React Native
+            from-source: false
+          - name: React Native from source
+            from-source: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,6 +48,7 @@ jobs:
       - uses: ./ios
         with:
           working-directory: ${{ runner.temp }}/test-library
+          from-source: ${{ matrix.from-source }}
 
   android:
     runs-on: ubuntu-latest

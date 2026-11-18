@@ -51,11 +51,12 @@ for (const file of [
   await hashFile(file)
 await hashDirectory('template/ios')
 
+const fromSource = process.env.VITEST_IOS_FROM_SOURCE === '1'
 const app = join(
   homedir(),
   'Library/Caches/vitest-pool-react-native',
   version,
-  'ios/ios/build/DerivedData/Build/Products/Debug-iphonesimulator/PoolConsumer.app',
+  `${fromSource ? 'ios-source' : 'ios'}/ios/build/DerivedData/Build/Products/Debug-iphonesimulator/PoolConsumer.app`,
 )
-const key = `vitest-pool-react-native-ios-app-v1-${process.arch}-${version}-${digest.digest('hex')}`
+const key = `vitest-pool-react-native-ios-app-v2-${fromSource ? 'source' : 'prebuilt'}-${process.arch}-${version}-${digest.digest('hex')}`
 await appendFile(process.env.GITHUB_OUTPUT, `key=${key}\napp=${app}\nudid=${udid}\n`)
