@@ -55,6 +55,7 @@ export async function openBridge(rpc: ResultRPC, signal: AbortSignal, listenPort
   let map: TraceMap | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
   let timeout: number
+  let startupTimeout: number
   let completed = false
   let testFile: string
   let statusRequested = false
@@ -69,10 +70,13 @@ export async function openBridge(rpc: ResultRPC, signal: AbortSignal, listenPort
   }
   function resetDeadline() {
     clearTimeout(timer)
+    // A healthy launch contacts the packager within seconds. Before the bundle request, a shorter
+    // window lets a stalled simulator be restarted sooner.
+    const limit = bundleRequested ? timeout : startupTimeout
     timer = setTimeout(() => {
-      const message = `${testFile} timed out after ${timeout} ms: ${progress}.`
+      const message = `${testFile} timed out after ${limit} ms: ${progress}.`
       fail(bundleRequested ? new Error(message) : new DeviceStartupTimeout(message))
-    }, timeout)
+    }, limit)
   }
   const abort = () => fail(signal.reason)
   signal.addEventListener('abort', abort, {once: true})
@@ -153,12 +157,18 @@ export async function openBridge(rpc: ResultRPC, signal: AbortSignal, listenPort
       endpoint: `http://127.0.0.1:${port}${resultPath}`,
       result: completion.promise,
       fail,
-      serve(result: RunBuildResult, idleTimeout: number, filepath: string) {
+      serve(
+        result: RunBuildResult,
+        idleTimeout: number,
+        filepath: string,
+        startupLimit = idleTimeout,
+      ) {
         signal.throwIfAborted()
         bundle = result.code
         map = new TraceMap(result.map)
         testFile = filepath
         timeout = idleTimeout
+        startupTimeout = Math.min(startupLimit, idleTimeout)
         resetDeadline()
       },
       async close() {

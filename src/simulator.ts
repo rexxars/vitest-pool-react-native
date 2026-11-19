@@ -9,31 +9,48 @@ import {promisify} from 'node:util'
 import {DeviceStartupTimeout} from './startup-timeout.js'
 
 const exec = promisify(execFile)
-async function simctl(...args: string[]): Promise<string> {
+// Booting a simulator can take minutes on a CI runner. Queries return immediately when the
+// simulator service is healthy, so a short limit finds a wedged one sooner.
+const bootTimeout = 120_000
+const queryTimeout = 30_000
+async function simctl(timeout: number, ...args: string[]): Promise<string> {
   try {
-    const {stdout} = await exec('xcrun', ['simctl', ...args], {
-      timeout: 120_000,
-      killSignal: 'SIGKILL',
-    })
+    const {stdout} = await exec('xcrun', ['simctl', ...args], {timeout, killSignal: 'SIGKILL'})
     return stdout
   } catch (cause) {
     if (cause instanceof Error && 'killed' in cause && cause.killed) {
-      throw new DeviceStartupTimeout(`simctl ${args.join(' ')} did not respond within 120000 ms`, {
-        cause,
-      })
+      throw new DeviceStartupTimeout(
+        `simctl ${args.join(' ')} did not respond within ${timeout} ms`,
+        {
+          cause,
+        },
+      )
     }
     throw cause
   }
 }
+// A killed simctl command makes the next one restart the stuck simulator service, so a repeat
+// usually succeeds.
+async function simctlQuery(...args: string[]): Promise<string> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await simctl(queryTimeout, ...args)
+    } catch (error) {
+      if (!(error instanceof DeviceStartupTimeout) || attempt >= 3) throw error
+    }
+  }
+}
 
 export async function restartDevice(device: Simulator): Promise<void> {
-  // prepareDevice boots the same simulator again, keeping the installed host.
-  await simctl('shutdown', device.udid)
+  // prepareDevice boots the same simulator again, keeping the installed host. A simulator that
+  // is already shut down, or too stuck to answer, makes this fail. Booting it again reports
+  // whether that mattered.
+  await simctl(queryTimeout, 'shutdown', device.udid).catch(() => {})
 }
 
 export async function resolveDevice(requested?: string): Promise<Simulator> {
   const {devices}: {devices: Record<string, Simulator[]>} = JSON.parse(
-    await simctl('list', 'devices', 'available', '--json'),
+    await simctlQuery('list', 'devices', 'available', '--json'),
   )
   const ios = Object.entries(devices)
     .filter(([name]) => name.includes('SimRuntime.iOS-'))
@@ -53,9 +70,9 @@ export async function resolveDevice(requested?: string): Promise<Simulator> {
 
 export async function prepareDevice(device: Simulator, bundleId: string): Promise<void> {
   // -b boots a shutdown simulator and waits for startup to finish.
-  await simctl('bootstatus', device.udid, '-b')
+  await simctl(bootTimeout, 'bootstatus', device.udid, '-b')
   try {
-    await simctl('get_app_container', device.udid, bundleId, 'app')
+    await simctl(queryTimeout, 'get_app_container', device.udid, bundleId, 'app')
   } catch (cause) {
     if (cause instanceof DeviceStartupTimeout) throw cause
     throw new Error(
