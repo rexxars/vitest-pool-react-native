@@ -10,7 +10,12 @@ const native = {
 export default defineConfig({
   test: {
     projects: [
-      {test: {name: 'node', include: ['tests/exports.test.ts', 'tests/ios-startup.node.ts']}},
+      {
+        test: {
+          name: 'node',
+          include: ['tests/exports.test.ts', 'tests/ios-startup.node.ts', 'tests/entry.node.ts'],
+        },
+      },
       {test: {name: 'ios', pool: iosPool(), ...native}},
       {test: {name: 'android', pool: androidPool(), ...native}},
     ],
