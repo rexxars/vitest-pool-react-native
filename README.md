@@ -77,7 +77,7 @@ jobs:
       - uses: rexxars/vitest-pool-react-native/android@main
 ```
 
-If your library's exports point at generated files, add its build step after `npm ci`. For a monorepo, pass `with: {working-directory: packages/my-library}`. If your Vitest project has a different name, pass it as `project` (defaults to `android`).
+If your library's exports point at generated files, add its build step after `npm ci`. For a monorepo, pass `with: {working-directory: packages/my-library}`. If your Vitest project has a different name, pass it as `project` (defaults to `android`). If the project lives in a config file other than the default, pass its path as `config`.
 
 The action sets up Java and the Android SDK, enables KVM, boots an API 35 x86_64 emulator and runs the Vitest project. The first run builds the plain React Native host. Later jobs can install the APK from GitHub Actions' cache. Changing your library's JavaScript or tests only rebuilds the Metro bundle. A different pool version or native host build inputs produce a new APK cache key.
 
@@ -98,7 +98,7 @@ ios:
     - uses: rexxars/vitest-pool-react-native/ios@main
 ```
 
-The iOS action accepts the same `working-directory` and `project` inputs as Android. Set `from-source: true` to compile React Native from source instead of using its prebuilt binaries. It's much slower and only matters if you need a native build of React Native itself. The project name defaults to `ios`. The cache key includes the pool version, native build inputs, runner architecture, Xcode and simulator SDK build. You can change library code and tests without rebuilding the app.
+The iOS action accepts the same `working-directory`, `project` and `config` inputs as Android. Set `from-source: true` to compile React Native from source instead of using its prebuilt binaries. It's much slower and only matters if you need a native build of React Native itself. The project name defaults to `ios`. The cache key includes the pool version, native build inputs, runner architecture, Xcode and simulator SDK build. You can change library code and tests without rebuilding the app.
 
 If the simulator stops responding before it requests a test file’s Metro bundle, the action lets the pool restart the simulator and try that file’s startup once. Once the app requests the bundle, a timeout fails the run and reports the last activity the pool saw. Update your pool tarball along with the action to get this behavior.
 
