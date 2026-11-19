@@ -4,6 +4,9 @@ inputs:
   project:
     description: Name of the Android project in your Vitest config.
     default: android
+  config:
+    description: Vitest config file to use, relative to the working directory. Leave empty for Vitest's default lookup.
+    default: ''
   working-directory:
     description: Library directory containing the installed pool and Vitest config.
     default: .
@@ -44,6 +47,7 @@ runs:
         HOST_APK: ${{ steps.host.outputs.apk }}
         APK_CACHE_HIT: ${{ steps.apk.outputs.cache-hit }}
         VITEST_PROJECT: ${{ inputs.project }}
+        VITEST_CONFIG: ${{ inputs.config }}
         HOST_SCRIPT: ${{ github.action_path }}/run.sh
       with:
         api-level: 35

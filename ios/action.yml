@@ -4,6 +4,9 @@ inputs:
   project:
     description: Name of the iOS project in your Vitest config.
     default: ios
+  config:
+    description: Vitest config file to use, relative to the working directory. Leave empty for Vitest's default lookup.
+    default: ''
   working-directory:
     description: Library directory containing the installed pool and Vitest config.
     default: .
@@ -60,5 +63,6 @@ runs:
       env:
         VITEST_IOS_DEVICE: ${{ steps.host.outputs.udid }}
         VITEST_PROJECT: ${{ inputs.project }}
+        VITEST_CONFIG: ${{ inputs.config }}
         VITEST_IOS_RECOVER_STARTUP: '1'
-      run: npm exec --no -- vitest run --project "$VITEST_PROJECT"
+      run: npm exec --no -- vitest run ${VITEST_CONFIG:+--config "$VITEST_CONFIG"} --project "$VITEST_PROJECT"

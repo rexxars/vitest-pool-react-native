@@ -7,4 +7,4 @@ if [[ "$APK_CACHE_HIT" == true ]]; then
 else
   npm exec --no -- vitest-pool-react-native setup android
 fi
-npm exec --no -- vitest run --project "$VITEST_PROJECT"
+npm exec --no -- vitest run ${VITEST_CONFIG:+--config "$VITEST_CONFIG"} --project "$VITEST_PROJECT"
