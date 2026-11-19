@@ -1,5 +1,11 @@
 # vitest-pool-react-native
 
+## 2.1.0
+
+### Minor Changes
+
+- 30d52ec: Support Vitest's `inject`. Values from `provide` in the Vitest config or `globalSetup` are available in test files and listed test helpers on the device.
+
 ## 2.0.0
 
 ### Major Changes
