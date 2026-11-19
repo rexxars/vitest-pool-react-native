@@ -11,6 +11,7 @@ export {
   beforeEach,
   describe,
   expect,
+  inject,
   it,
   onTestFailed,
   onTestFinished,

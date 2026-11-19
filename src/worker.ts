@@ -76,13 +76,16 @@ export class NativeWorker<Device extends string | Simulator>
     this.controller.abort(new Error(this.name + ' test worker stopped'))
     await this.running
   }
-  private async execute({files, workerId}: RunContext, method: Method): Promise<void> {
+  private async execute(
+    {files, workerId, providedContext}: RunContext,
+    method: Method,
+  ): Promise<void> {
     const config = this.config
     if (!config) throw new Error('Vitest sent a run request before worker startup')
     const device = await this.driver.resolveDevice(this.options.device)
     const id = typeof device === 'string' ? device : device.udid
     await runOnDevice(this.platform + ':' + id, () =>
-      this.runFiles(device, files, workerId, method, config),
+      this.runFiles(device, files, workerId, method, config, providedContext),
     )
   }
   private async runFiles(
@@ -91,6 +94,7 @@ export class NativeWorker<Device extends string | Simulator>
     workerId: number,
     method: Method,
     config: SerializedConfig,
+    providedContext: RunContext['providedContext'],
   ): Promise<void> {
     const {signal} = this.controller
     signal.throwIfAborted()
@@ -107,7 +111,7 @@ export class NativeWorker<Device extends string | Simulator>
             0
           const dir = await mkdtemp(join(config.root, '.vitest-' + this.platform + '-'))
           try {
-            await this.runFile(dir, device, spec, method, port, workerId, config)
+            await this.runFile(dir, device, spec, method, port, workerId, config, providedContext)
           } finally {
             await rm(dir, {recursive: true, force: true})
           }
@@ -136,6 +140,7 @@ export class NativeWorker<Device extends string | Simulator>
     metroPort: number,
     workerId: number,
     config: SerializedConfig,
+    providedContext: RunContext['providedContext'],
   ): Promise<void> {
     const {signal} = this.controller
     const bridge = await openBridge(this.rpc, signal, metroPort)
@@ -152,6 +157,7 @@ export class NativeWorker<Device extends string | Simulator>
         method,
         platform: this.platform,
         worker: {workerId, concurrencyId: this.concurrencyId},
+        providedContext,
       })
       bridge.serve(result, this.options.idleTimeout, spec.filepath)
       terminate = await this.driver.launch(device, this.options.appId, bridge.port, bridge.fail)

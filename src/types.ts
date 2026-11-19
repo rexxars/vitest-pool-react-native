@@ -49,6 +49,7 @@ export interface BundleOptions {
   spec: Spec
   config: SerializedConfig
   worker: {workerId: number; concurrencyId: number}
+  providedContext: RunContext['providedContext']
   endpoint: string
   method: Method
   platform: Platform
