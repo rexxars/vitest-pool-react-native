@@ -168,6 +168,20 @@ export async function launch(
     stopping = true
     clearTimeout(timer)
     try {
+      try {
+        const log = await shell(
+          'logcat',
+          '-d',
+          'ReactNativeJS:V',
+          'ReactNative:V',
+          'AndroidRuntime:E',
+          'hermes:V',
+          '*:S',
+        )
+        console.warn('[android logcat]\n' + log.split(/\r?\n/).slice(-200).join('\n'))
+      } catch (logError) {
+        console.warn('[android logcat] failed: ' + String(logError))
+      }
       await shell('am', 'force-stop', appId)
     } finally {
       await unmap?.()
