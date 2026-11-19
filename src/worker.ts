@@ -7,7 +7,7 @@ import {createMethodsRPC, type PoolOptions, type PoolWorker} from 'vitest/node'
 import {openBridge} from './bridge.js'
 import {bundle} from './bundle.js'
 import {runOnDevice} from './device-queue.js'
-import {withStartupRecovery} from './startup-timeout.js'
+import {recoveryStartupTimeout, startupAttempts, withStartupRecovery} from './startup-timeout.js'
 import type {
   DeviceDriver,
   Method,
@@ -105,22 +105,33 @@ export class NativeWorker<Device extends string | Simulator>
       // Each file starts with fresh globals and a new Metro module cache.
       for (const spec of files) {
         signal.throwIfAborted()
+        const recovering = restart && process.env.VITEST_IOS_RECOVER_STARTUP === '1'
         const run = async () => {
           port ??=
             (await this.driver.prepareDevice(device, this.options.appId, this.options.metroPort)) ??
             0
           const dir = await mkdtemp(join(config.root, '.vitest-' + this.platform + '-'))
           try {
-            await this.runFile(dir, device, spec, method, port, workerId, config, providedContext)
+            await this.runFile(
+              dir,
+              device,
+              spec,
+              method,
+              port,
+              workerId,
+              config,
+              providedContext,
+              recovering ? recoveryStartupTimeout : undefined,
+            )
           } finally {
             await rm(dir, {recursive: true, force: true})
           }
         }
         const recover =
-          restart && process.env.VITEST_IOS_RECOVER_STARTUP === '1'
-            ? async (error: Error) => {
+          restart && recovering
+            ? async (error: Error, attempt: number) => {
                 console.warn(
-                  `[${this.name}] ${spec.filepath}: ${error.message} Restarting the simulator and retrying startup once.`,
+                  `[${this.name}] ${spec.filepath}: ${error.message} Restarting the simulator and retrying startup (attempt ${attempt + 1} of ${startupAttempts}).`,
                 )
                 await restart(device)
                 port = undefined
@@ -141,6 +152,7 @@ export class NativeWorker<Device extends string | Simulator>
     workerId: number,
     config: SerializedConfig,
     providedContext: RunContext['providedContext'],
+    startupLimit?: number,
   ): Promise<void> {
     const {signal} = this.controller
     const bridge = await openBridge(this.rpc, signal, metroPort)
@@ -159,7 +171,7 @@ export class NativeWorker<Device extends string | Simulator>
         worker: {workerId, concurrencyId: this.concurrencyId},
         providedContext,
       })
-      bridge.serve(result, this.options.idleTimeout, spec.filepath)
+      bridge.serve(result, this.options.idleTimeout, spec.filepath, startupLimit)
       terminate = await this.driver.launch(device, this.options.appId, bridge.port, bridge.fail)
       await bridge.result
       finished = true

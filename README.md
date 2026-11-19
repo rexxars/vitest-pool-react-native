@@ -100,7 +100,7 @@ ios:
 
 The iOS action accepts the same `working-directory`, `project` and `config` inputs as Android. Set `from-source: true` to compile React Native from source instead of using its prebuilt binaries. It's much slower and only matters if you need a native build of React Native itself. The project name defaults to `ios`. The cache key includes the pool version, native build inputs, runner architecture, Xcode and simulator SDK build. You can change library code and tests without rebuilding the app.
 
-If the simulator stops responding before it requests a test file’s Metro bundle, the action lets the pool restart the simulator and try that file’s startup once. Once the app requests the bundle, a timeout fails the run and reports the last activity the pool saw. Update your pool tarball along with the action to get this behavior.
+If the simulator stops responding before it requests a test file’s Metro bundle, the action lets the pool restart the simulator and try that file’s startup again, up to three attempts in total. In that mode the pool waits 60 seconds for the app to contact the packager, instead of the full `idleTimeout`, so a stalled launch is retried sooner. Once the app requests the bundle, a timeout fails the run and reports the last activity the pool saw. Update your pool tarball along with the action to get this behavior.
 
 ## Set up a device
 
