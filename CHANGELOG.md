@@ -1,5 +1,12 @@
 # vitest-pool-react-native
 
+## 2.1.1
+
+### Patch Changes
+
+- e5e5e67: Make iOS startup recovery in GitHub Actions more robust. A test file gets up to three startup attempts instead of two, a stalled launch is detected after 60 seconds instead of 120, and `simctl` queries that hang are cut off after 30 seconds and repeated. Restarting a simulator that is already shut down no longer fails.
+- 1419e42: Report errors thrown while a test file or helper loads. React Native's module loader swallowed them, so they appeared as a timeout on Android or as an undefined import on iOS. The run now fails with the original error.
+
 ## 2.1.0
 
 ### Minor Changes
