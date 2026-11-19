@@ -28,6 +28,7 @@ export async function execute({
     return pending
   }
 
+  const diagnostics: string[] = []
   const run = method === 'collect' ? collectTests : startTests
   if (typeof config.diff === 'object') Object.assign(config, {_diffOptions: config.diff})
   const runner: VitestRunner = {
@@ -36,7 +37,14 @@ export async function execute({
     importFile(path) {
       const loader = load[path]
       if (!loader) throw new Error('No Metro entry for ' + path)
-      return loader()
+      try {
+        const loaded = loader()
+        diagnostics.push('imported ' + path + ' exports=' + Object.keys(loaded ?? {}).join(','))
+        return loaded
+      } catch (error) {
+        diagnostics.push('import threw ' + String(error) + '\n' + (error as Error)?.stack)
+        throw error
+      }
     },
     extendTaskContext,
     onBeforeTryTask: beginAssertions,
@@ -45,6 +53,21 @@ export async function execute({
     onCollected: (files) => report('collected', files),
     onTaskUpdate: (packs, events) => report('update', packs, events),
   }
-  await run(specs, runner)
+  const files = await run(specs, runner)
+  if (files.some((file) => !file.tasks.length)) {
+    const summary = files.map((file) => ({
+      path: file.filepath,
+      tasks: file.tasks.length,
+      result: file.result,
+    }))
+    await fetch(endpoint + '/error', {
+      method: 'POST',
+      body: JSON.stringify({
+        message:
+          'DEBUG collected no tests\n' + diagnostics.join('\n') + '\n' + JSON.stringify(summary),
+        stack: '',
+      }),
+    })
+  }
   await report('done')
 }
