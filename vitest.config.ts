@@ -2,7 +2,10 @@
 import {defineConfig} from 'vitest/config'
 import {androidPool, iosPool} from 'vitest-pool-react-native'
 
-const native = {include: ['tests/**/*.{test,spec}.{js,jsx,ts,tsx}']}
+const native = {
+  include: ['tests/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+  provide: {poolProbe: {message: 'from the host', count: 2}},
+}
 
 export default defineConfig({
   test: {

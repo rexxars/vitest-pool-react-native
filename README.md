@@ -132,7 +132,7 @@ If `adb devices` lists several devices, set `VITEST_ANDROID_DEVICE` (or `ANDROID
 
 Vitest selects the files and reports the results on your computer. For each file, the pool starts a fresh app process. Metro bundles the test, its setup files and your library for the selected platform. It uses your project's Metro config if you have one, or the standard React Native config otherwise.
 
-Only the test's `vitest` import goes through a private runner bundle. Your library sees the globals React Native provides. The pool supports ordinary tests, hooks, asynchronous assertions and filtering by file or test name. Use another Vitest project for tests that rely on `vi` (including mocks and fake timers), snapshots, Vite transforms or coverage. The pool doesn't provide UI automation.
+Only the test's `vitest` import goes through a private runner bundle. Your library sees the globals React Native provides. The pool supports ordinary tests, hooks, asynchronous assertions and filtering by file or test name. Values from your config's `provide` option, or from `globalSetup`, are available through `inject`. They have to be JSON-serializable, and each file gets the values as they were when its bundle was built. Use another Vitest project for tests that rely on `vi` (including mocks and fake timers), snapshots, Vite transforms or coverage. The pool doesn't provide UI automation.
 
 ## Configuration
 

@@ -50,6 +50,7 @@ export async function bundle({
   spec,
   config,
   worker,
+  providedContext,
   endpoint,
   method,
   platform,
@@ -90,7 +91,14 @@ export async function bundle({
   // Vitest reads worker state while its assertion plugins are initializing.
   // Only the adapter and entry point import this module.
   const runnerConfig = Object.fromEntries(runnerKeys.map((key) => [key, config[key]]))
-  const state = {config: runnerConfig, filepath: spec.filepath, ctx: {...worker, files: [spec]}}
+  // Vitest's `inject` reads `providedContext` from this state. The values were serialized for
+  // Vitest's workers already, and are fixed for the file once it is bundled.
+  const state = {
+    config: runnerConfig,
+    filepath: spec.filepath,
+    ctx: {...worker, files: [spec]},
+    providedContext,
+  }
   await writeFile(
     join(dir, 'context.js'),
     `module.exports = JSON.parse(${JSON.stringify(serialize(state))}, (_, value) =>
